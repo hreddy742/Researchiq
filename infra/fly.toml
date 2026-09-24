@@ -1,0 +1,24 @@
+app = "researchiq-ollama"
+primary_region = "iad"
+
+[build]
+  image = "ollama/ollama:latest"
+
+[env]
+  OLLAMA_MODELS = "llama3.2:3b"
+
+[[services]]
+  internal_port = 11434
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 11434
+
+[mounts]
+  source = "ollama_models"
+  destination = "/root/.ollama"
+
+[vm]
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 4096

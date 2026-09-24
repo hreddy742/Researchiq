@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: researchiq
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5434:5432"  # 5432/5433 already allocated on this machine
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Ollama runs natively on the host (already installed).
+  # If you need the containerised version instead, uncomment the block below
+  # and remove the host.docker.internal reference from the backend service.
+  #
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8010:8000"  # 8000/8001 already allocated on this machine
+    environment:
+      # host.docker.internal resolves to the host machine from inside a container
+      OLLAMA_URL: http://host.docker.internal:11434
+      DATABASE_URL: postgresql+asyncpg://postgres:password@postgres:5432/researchiq
+      CORS_ORIGINS: '["http://localhost:4010"]'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    ports:
+      - "4010:3000"  # 3000-3010 reserved by Docker Desktop on Windows
+    environment:
+      VITE_API_URL: http://localhost:8010
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+
+volumes:
+  pg_data:
